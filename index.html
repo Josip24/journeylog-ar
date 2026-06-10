@@ -182,6 +182,27 @@
       scene.enterAR();
       document.getElementById('hud').style.display = 'block';
     });
+
+    // Rotating motivator messages
+    const MOTIVATIONS = [
+      '🔥 Weiter so, du schaffst das!',
+      '💪 Nur noch ein bisschen!',
+      '🌟 Klasse Tempo!',
+      '🏆 Du bist auf dem richtigen Weg!',
+      '⚡ Fast da – nicht aufgeben!',
+    ];
+    let motivIdx = 0;
+    function rotateMotivator() {
+      const el = document.getElementById('hud-motivator');
+      if (!el) return;
+      motivIdx = (motivIdx + 1) % MOTIVATIONS.length;
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.textContent = MOTIVATIONS[motivIdx];
+        el.style.opacity = '1';
+      }, 400);
+    }
+    setInterval(rotateMotivator, 15000);
   </script>
 </body>
 </html>
