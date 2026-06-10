@@ -81,12 +81,59 @@
       });
     }
 
+    function buildWaypointEntities() {
+      const root = document.getElementById('waypoints-root');
+      WAYPOINTS.forEach((wp) => {
+        const entity = document.createElement('a-entity');
+        entity.id = 'wp-' + wp.name;
+        entity.setAttribute('position', '0 1.6 -4');
+
+        const arrow = document.createElement('a-cone');
+        arrow.setAttribute('color', '#64ffa0');
+        arrow.setAttribute('height', '0.3');
+        arrow.setAttribute('radius-bottom', '0.12');
+        arrow.setAttribute('radius-top', '0');
+        arrow.setAttribute('position', '0 0.3 0');
+        arrow.setAttribute('animation', 'property: position; from: 0 0.2 0; to: 0 0.4 0; dur: 900; dir: alternate; loop: true; easing: easeInOutSine');
+        entity.appendChild(arrow);
+
+        const label = document.createElement('a-text');
+        label.id = 'wp-label-' + wp.name;
+        label.setAttribute('value', wp.icon + ' ' + wp.name);
+        label.setAttribute('color', '#ffffff');
+        label.setAttribute('align', 'center');
+        label.setAttribute('position', '0 -0.1 0');
+        label.setAttribute('scale', '1.2 1.2 1.2');
+        entity.appendChild(label);
+
+        const distLabel = document.createElement('a-text');
+        distLabel.id = 'wp-dist-' + wp.name;
+        distLabel.setAttribute('value', '-- m');
+        distLabel.setAttribute('color', '#00e5ff');
+        distLabel.setAttribute('align', 'center');
+        distLabel.setAttribute('position', '0 -0.35 0');
+        distLabel.setAttribute('scale', '0.9 0.9 0.9');
+        entity.appendChild(distLabel);
+
+        const bg = document.createElement('a-plane');
+        bg.setAttribute('color', '#000000');
+        bg.setAttribute('opacity', '0.5');
+        bg.setAttribute('width', '1.2');
+        bg.setAttribute('height', '0.6');
+        bg.setAttribute('position', '0 -0.22 -0.01');
+        entity.appendChild(bg);
+
+        root.appendChild(entity);
+      });
+    }
+
     // Start
     document.getElementById('enter-ar-btn').addEventListener('click', async () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         await DeviceOrientationEvent.requestPermission();
       }
+      buildWaypointEntities();
       startCompass();
       startGPS();
       const scene = document.getElementById('ar-scene');
