@@ -8,7 +8,30 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <p>Setup OK</p>
+  <button id="enter-ar-btn">AR starten</button>
+
+  <a-scene
+    id="ar-scene"
+    background="color: transparent"
+    renderer="alpha: true; colorManagement: true"
+    webxr="requiredFeatures: local-floor; optionalFeatures: dom-overlay"
+    embedded
+    style="display:none">
+
+    <a-camera position="0 1.6 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Wegpunkte werden per JS hier eingefügt -->
+    <a-entity id="waypoints-root"></a-entity>
+  </a-scene>
+
   <script src="waypoints.js"></script>
+  <script>
+    document.getElementById('enter-ar-btn').addEventListener('click', async () => {
+      const scene = document.getElementById('ar-scene');
+      scene.style.display = 'block';
+      document.getElementById('enter-ar-btn').style.display = 'none';
+      scene.enterAR();
+    });
+  </script>
 </body>
 </html>
