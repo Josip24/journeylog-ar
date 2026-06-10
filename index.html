@@ -26,7 +26,69 @@
 
   <script src="waypoints.js"></script>
   <script>
+    // State
+    const state = {
+      userLat: null,
+      userLng: null,
+      heading: 0,
+    };
+
+    // Kompass
+    function startCompass() {
+      if ('ondeviceorientationabsolute' in window) {
+        window.addEventListener('deviceorientationabsolute', onOrientation, true);
+      } else {
+        window.addEventListener('deviceorientation', onOrientation, true);
+      }
+    }
+
+    function onOrientation(e) {
+      if (e.webkitCompassHeading != null) {
+        state.heading = e.webkitCompassHeading;
+      } else if (e.alpha != null) {
+        state.heading = (360 - e.alpha) % 360;
+      }
+      updateWaypointPositions();
+    }
+
+    // GPS
+    function startGPS() {
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          state.userLat = pos.coords.latitude;
+          state.userLng = pos.coords.longitude;
+          updateWaypointPositions();
+        },
+        (err) => console.warn('GPS Fehler:', err.message),
+        { enableHighAccuracy: true, maximumAge: 2000 }
+      );
+    }
+
+    function updateWaypointPositions() {
+      if (state.userLat === null) return;
+      WAYPOINTS.forEach((wp) => {
+        const dist = haversineDistance(state.userLat, state.userLng, wp.lat, wp.lng);
+        const bear = gpsBearing(state.userLat, state.userLng, wp.lat, wp.lng);
+        const pos  = waypointToXRPosition(bear, state.heading);
+        const el   = document.getElementById('wp-' + wp.name);
+        if (el) {
+          el.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y} ${pos.z.toFixed(2)}`);
+          const distEl = document.getElementById('wp-dist-' + wp.name);
+          if (distEl) distEl.setAttribute('value', dist < 1000
+            ? Math.round(dist) + 'm'
+            : (dist / 1000).toFixed(1) + 'km');
+        }
+      });
+    }
+
+    // Start
     document.getElementById('enter-ar-btn').addEventListener('click', async () => {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        await DeviceOrientationEvent.requestPermission();
+      }
+      startCompass();
+      startGPS();
       const scene = document.getElementById('ar-scene');
       scene.style.display = 'block';
       document.getElementById('enter-ar-btn').style.display = 'none';
