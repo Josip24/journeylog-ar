@@ -1,2 +1,55 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+body { background: #000; color: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; overflow: hidden; }
+
+#enter-ar-btn {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: #64ffa0; color: #000; border: none; padding: 18px 36px;
+  font-size: 20px; font-weight: bold; border-radius: 12px; cursor: pointer; z-index: 100;
+}
+
+#hud {
+  position: fixed; inset: 0; pointer-events: none; z-index: 50;
+}
+
+.hud-top {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.hud-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.hud-row:last-child { margin-bottom: 0; }
+.hud-row-small { font-size: 13px; color: #aaa; }
+.hud-tour-name { font-size: 16px; font-weight: bold; color: #64ffa0; }
+.hud-weather { font-size: 13px; color: #ffd166; }
+.mode-toggle { display: flex; gap: 8px; }
+.mode-btn { padding: 2px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; }
+.mode-active { background: rgba(100,255,160,0.2); border-color: #64ffa0; color: #64ffa0; }
+
+.hud-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,0.15);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hud-motivation { font-size: 14px; color: #ffd166; font-weight: bold; transition: opacity 0.4s ease; }
+.hud-hydration { font-size: 13px; color: #00e5ff; }
+.hud-progress-row { display: flex; align-items: center; gap: 10px; }
+.progress-bar-wrap { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; }
+.progress-bar-fill { height: 100%; background: #64ffa0; border-radius: 3px; }
+.progress-label { font-size: 12px; color: #aaa; white-space: nowrap; }
+.hud-poi-row { display: flex; gap: 8px; }
+.poi-badge {
+  font-size: 12px; padding: 3px 10px;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px;
+}
+.poi-inactive { opacity: 0.4; }
+
+.corner { position: absolute; width: 20px; height: 20px; border-color: rgba(100,255,160,0.6); border-style: solid; }
+.corner-tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+.corner-tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+.corner-bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+.corner-br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }

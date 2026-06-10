@@ -24,6 +24,46 @@
     <a-entity id="waypoints-root"></a-entity>
   </a-scene>
 
+  <div id="hud" style="display:none">
+    <!-- HUD oben -->
+    <div class="hud-top">
+      <div class="hud-row">
+        <span class="hud-tour-name">🏔 HdM Campus Tour</span>
+        <span class="hud-weather">⛅ 18°C &nbsp; ⚠️ Regen später</span>
+      </div>
+      <div class="hud-row hud-row-small">
+        <span>↑ 384m</span>
+        <span class="mode-toggle">
+          <span class="mode-btn mode-active">🚶 Wandern</span>
+          <span class="mode-btn">🚴 Rad</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- HUD unten -->
+    <div class="hud-bottom">
+      <div class="hud-motivation" id="hud-motivator">🔥 Weiter so, du schaffst das!</div>
+      <div class="hud-hydration">💧 Trinkpause fällig!</div>
+      <div class="hud-progress-row">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:42%"></div>
+        </div>
+        <span class="progress-label">42% &nbsp;•&nbsp; 1,3 km verbleibend</span>
+      </div>
+      <div class="hud-poi-row">
+        <span class="poi-badge">🏕 Raststätte</span>
+        <span class="poi-badge">⛰ Würfel</span>
+        <span class="poi-badge poi-inactive">🌊 –</span>
+      </div>
+    </div>
+
+    <!-- Ecken-Markierungen (Quest-Look) -->
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+  </div>
+
   <script src="waypoints.js"></script>
   <script>
     // State
@@ -140,6 +180,7 @@
       scene.style.display = 'block';
       document.getElementById('enter-ar-btn').style.display = 'none';
       scene.enterAR();
+      document.getElementById('hud').style.display = 'block';
     });
   </script>
 </body>
