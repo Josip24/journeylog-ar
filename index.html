@@ -6,6 +6,19 @@
   <title>JourneyLog Campus AR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Intercept WebXR session creation to inject DOM overlay BEFORE A-Frame requests the session
+    if (navigator.xr) {
+      const _requestSession = navigator.xr.requestSession.bind(navigator.xr);
+      navigator.xr.requestSession = function(mode, options = {}) {
+        if (mode === 'immersive-ar') {
+          options.optionalFeatures = [...(options.optionalFeatures || []), 'dom-overlay'];
+          options.domOverlay = { root: document.getElementById('hud') };
+        }
+        return _requestSession(mode, options);
+      };
+    }
+  </script>
 </head>
 <body>
   <button id="enter-ar-btn">AR starten</button>
@@ -184,15 +197,6 @@
       scene.style.display = 'block';
       document.getElementById('enter-ar-btn').style.display = 'none';
       document.getElementById('hud').style.display = 'block';
-      // Tell WebXR to keep #hud visible as DOM overlay in immersive-ar mode
-      const webxrSystem = scene.systems && scene.systems['webxr'];
-      if (webxrSystem) {
-        webxrSystem.sessionInit = {
-          requiredFeatures: ['local-floor'],
-          optionalFeatures: ['dom-overlay'],
-          domOverlay: { root: document.getElementById('hud') },
-        };
-      }
       scene.enterAR();
     });
 
