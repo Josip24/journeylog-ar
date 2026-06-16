@@ -183,8 +183,17 @@
       const scene = document.getElementById('ar-scene');
       scene.style.display = 'block';
       document.getElementById('enter-ar-btn').style.display = 'none';
-      scene.enterAR();
       document.getElementById('hud').style.display = 'block';
+      // Tell WebXR to keep #hud visible as DOM overlay in immersive-ar mode
+      const webxrSystem = scene.systems && scene.systems['webxr'];
+      if (webxrSystem) {
+        webxrSystem.sessionInit = {
+          requiredFeatures: ['local-floor'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: document.getElementById('hud') },
+        };
+      }
+      scene.enterAR();
     });
 
     // Rotating motivator messages
