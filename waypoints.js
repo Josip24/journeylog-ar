@@ -1,3 +1,6 @@
+// Fixed start position (Vorlesungssaal) – fallback for Quest 2 (no GPS chip)
+const START_POSITION = { lat: 48.74215412756118, lng: 9.100572491887961 };
+
 const WAYPOINTS = [
   { name: 'Mensa',          icon: '🍽',  lat: 48.74273, lng: 9.10387 },
   { name: 'Würfel',         icon: '🎲',  lat: 48.740751166620676, lng: 9.100862255128924 },

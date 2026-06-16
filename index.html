@@ -174,6 +174,10 @@
         await DeviceOrientationEvent.requestPermission();
       }
       buildWaypointEntities();
+      // Pre-fill with fixed start position so arrows show immediately on Quest 2 (no GPS chip)
+      state.userLat = START_POSITION.lat;
+      state.userLng = START_POSITION.lng;
+      updateWaypointPositions();
       startCompass();
       startGPS();
       const scene = document.getElementById('ar-scene');
