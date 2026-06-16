@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>JourneyLog – Campus AR</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; }
+
+    /* ── SCREENS ── */
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    [hidden] { display: none !important; }
+
+    /* ── START SCREEN ── */
+    #screen-start {
+      background: linear-gradient(160deg, #0a1a0e 0%, #000 55%, #0a0f1a 100%);
+      color: #fff; padding: 32px; text-align: center; gap: 0;
+    }
+    .start-logo {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #64ffa0, #00e5ff);
+      border-radius: 22px; margin: 0 auto 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; box-shadow: 0 0 40px rgba(100,255,160,0.35);
+    }
+    .start-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .start-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 32px; letter-spacing: 2px; text-transform: uppercase; }
+    .route-preview {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px; padding: 18px 22px; margin-bottom: 28px;
+      width: 100%; max-width: 320px;
+    }
+    .route-preview-label { font-size: 10px; color: #64ffa0; font-weight: 800; letter-spacing: 2.5px; margin-bottom: 14px; }
+    .route-stop { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-size: 14px; color: rgba(255,255,255,0.85); font-weight: 600; }
+    .stop-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .route-connector { width: 1px; height: 10px; background: rgba(255,255,255,0.15); margin-left: 4px; }
+    #btn-start {
+      background: #64ffa0; color: #000; border: none; border-radius: 16px;
+      padding: 17px 0; font-size: 16px; font-weight: 800; cursor: pointer;
+      width: 100%; max-width: 320px; letter-spacing: 0.3px;
+      box-shadow: 0 0 28px rgba(100,255,160,0.4);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    #btn-start:active { transform: scale(0.97); box-shadow: 0 0 14px rgba(100,255,160,0.3); }
+    .start-hint { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 14px; line-height: 1.7; }
+
+    /* ── AR SCREEN ── */
+    #screen-ar { background: #000; }
+
+    #camera { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+    /* Corner markers – Quest look */
+    .corner { position: fixed; z-index: 10; width: 22px; height: 22px; pointer-events: none; }
+    .corner-tl { top: 14px; left: 14px; border-top: 2px solid rgba(100,255,160,0.55); border-left: 2px solid rgba(100,255,160,0.55); border-radius: 2px 0 0 0; }
+    .corner-tr { top: 14px; right: 14px; border-top: 2px solid rgba(100,255,160,0.55); border-right: 2px solid rgba(100,255,160,0.55); border-radius: 0 2px 0 0; }
+    .corner-bl { bottom: 14px; left: 14px; border-bottom: 2px solid rgba(100,255,160,0.55); border-left: 2px solid rgba(100,255,160,0.55); border-radius: 0 0 0 2px; }
+    .corner-br { bottom: 14px; right: 14px; border-bottom: 2px solid rgba(100,255,160,0.55); border-right: 2px solid rgba(100,255,160,0.55); border-radius: 0 0 2px 0; }
+
+    /* HUD Top */
+    #hud-top {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      padding: max(env(safe-area-inset-top, 0px), 12px) 16px 12px;
+      background: rgba(0,0,0,0.88); border-bottom: 2px solid #64ffa0;
+      display: flex; justify-content: space-between; align-items: center;
+      pointer-events: none;
+    }
+    .app-label { font-size: 9px; font-weight: 800; color: #64ffa0; letter-spacing: 2.5px; }
+    .route-name-hud { font-size: 15px; font-weight: 800; color: #fff; }
+    #hud-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    #gps-badge {
+      font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    #gps-badge.active { background: rgba(100,255,160,0.12); color: #64ffa0; border-color: rgba(100,255,160,0.35); }
+    #mode-badge {
+      font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 5px;
+      color: #ffd166; background: rgba(255,209,102,0.12); border: 1px solid rgba(255,209,102,0.3);
+      display: none; letter-spacing: 1px;
+    }
+    #mode-badge.visible { display: block; }
+
+    /* Compass (top-right) */
+    #compass {
+      position: fixed; top: 76px; right: 14px; z-index: 10;
+      width: 62px; pointer-events: none; text-align: center;
+    }
+    #compass-ring {
+      width: 62px; height: 62px; border-radius: 50%;
+      border: 2px solid rgba(100,255,160,0.45);
+      background: rgba(0,0,0,0.78);
+      position: relative; overflow: hidden;
+    }
+    .compass-dir {
+      position: absolute; font-size: 8px; font-weight: 800;
+      color: rgba(255,255,255,0.45); line-height: 1;
+    }
+    .compass-dir.n { top: 4px; left: 50%; transform: translateX(-50%); color: #ff5555; }
+    .compass-dir.s { bottom: 4px; left: 50%; transform: translateX(-50%); }
+    .compass-dir.e { right: 5px; top: 50%; transform: translateY(-50%); }
+    .compass-dir.w { left: 5px; top: 50%; transform: translateY(-50%); }
+    #compass-needle {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 26px; transition: transform 0.22s ease;
+    }
+    #compass-target-label {
+      font-size: 9px; font-weight: 800; color: #64ffa0; margin-top: 5px; letter-spacing: 0.5px;
+      text-shadow: 0 0 8px rgba(100,255,160,0.6);
+    }
+
+    /* Main Navigation Arrow */
+    #nav-center {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -58%);
+      z-index: 10; text-align: center; pointer-events: none;
+    }
+    #nav-arrow-wrapper { display: inline-block; }
+    #nav-arrow-icon {
+      font-size: 90px; color: #64ffa0; line-height: 1; display: block;
+      filter: drop-shadow(0 0 14px rgba(100,255,160,0.65));
+      animation: bob 2s ease-in-out infinite;
+    }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    #nav-label {
+      display: inline-block; margin-top: 10px;
+      font-size: 14px; font-weight: 800; color: #fff;
+      background: rgba(0,0,0,0.88); border: 2px solid #64ffa0;
+      border-radius: 10px; padding: 5px 16px; letter-spacing: 0.3px;
+    }
+    #nav-dist {
+      font-size: 26px; font-weight: 800; color: #64ffa0; margin-top: 6px;
+      text-shadow: 0 0 12px rgba(100,255,160,0.4);
+    }
+
+    /* POI Badges */
+    #poi-list {
+      position: fixed; top: 50%; right: 14px; transform: translateY(-30%);
+      z-index: 10; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .poi-item {
+      background: rgba(0,0,0,0.88); border: 2px solid;
+      border-radius: 10px; padding: 7px 10px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .poi-dir { font-size: 18px; transition: transform 0.22s ease; }
+    .poi-name-el { font-size: 11px; font-weight: 800; }
+    .poi-dist-el { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+    /* Minimap */
+    #minimap {
+      position: fixed; bottom: 78px; right: 14px;
+      width: 112px; height: 112px; border-radius: 14px; overflow: hidden;
+      border: 2px solid rgba(100,255,160,0.45); z-index: 10;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+    }
+    .leaflet-tile-pane { filter: brightness(0.85) saturate(0.8); }
+
+    /* HUD Bottom */
+    #hud-bottom {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      padding: 10px 16px max(env(safe-area-inset-bottom, 0px), 12px);
+      background: rgba(0,0,0,0.88); border-top: 2px solid rgba(100,255,160,0.4);
+      pointer-events: none;
+    }
+    #motivator { font-size: 12px; font-weight: 700; color: #ffd166; margin-bottom: 7px; }
+    #progress-track {
+      height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 5px;
+    }
+    #progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #64ffa0, #00e5ff); border-radius: 3px; transition: width 0.8s ease; }
+    #progress-stats { display: flex; justify-content: space-between; }
+    .pstat { font-size: 10px; }
+    .pstat-label { color: rgba(255,255,255,0.35); }
+    .pstat-val { color: #fff; font-weight: 700; }
+
+    /* Arrival Banner */
+    #arrival-banner {
+      position: fixed; inset: 0; z-index: 30;
+      background: rgba(0,0,0,0.82);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; gap: 0; pointer-events: auto;
+    }
+    .arrive-icon { font-size: 72px; animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1); margin-bottom: 16px; }
+    @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .arrive-tag { font-size: 11px; font-weight: 800; letter-spacing: 2.5px; color: #64ffa0; margin-bottom: 8px; }
+    #arrive-name { font-size: 30px; font-weight: 800; color: #fff; margin-bottom: 32px; }
+    #btn-next {
+      background: #64ffa0; color: #000; border: none; border-radius: 14px;
+      padding: 15px 42px; font-size: 16px; font-weight: 800; cursor: pointer;
+    }
+
+    /* Finished */
+    #screen-finished {
+      background: linear-gradient(160deg, #0a1a0e 0%, #000 60%);
+      color: #fff; text-align: center; padding: 40px; gap: 0;
+    }
+    .fin-icon { font-size: 80px; margin-bottom: 16px; }
+    .fin-title { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .fin-sub { color: rgba(255,255,255,0.4); font-size: 13px; margin-bottom: 32px; letter-spacing: 1px; }
+    .fin-stats { display: flex; gap: 32px; }
+    .fin-stat-val { font-size: 28px; font-weight: 800; color: #64ffa0; }
+    .fin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ START SCREEN ═══════════════ -->
+<div id="screen-start" class="screen">
+  <div class="start-logo">🏔</div>
+  <div class="start-title">JourneyLog</div>
+  <div class="start-sub">HdM Campus Navigation</div>
+
+  <div class="route-preview">
+    <div class="route-preview-label">CAMPUS ROUTE</div>
+    <div class="route-stop"><div class="stop-dot" style="background:#64ffa0"></div>Start – Vorlesungssaal</div>
+    <div class="route-connector"></div>
+    <div class="route-stop"><div class="stop-dot" style="background:#ffd166"></div>🎲 Würfel</div>
+    <div class="route-connector"></div>
+    <div class="route-stop"><div class="stop-dot" style="background:#00e5ff"></div>🍽 Mensa</div>
+    <div class="route-connector"></div>
+    <div class="route-stop"><div class="stop-dot" style="background:#ff8c69"></div>📚 Lernwelt</div>
+  </div>
+
+  <button id="btn-start">Kamera &amp; Navigation starten</button>
+  <div class="start-hint">Kamera- und Standort-Zugriff wird benötigt.<br>Bei iOS: Kompass-Berechtigung erlauben.</div>
+</div>
+
+<!-- ═══════════════ AR SCREEN ═══════════════ -->
+<div id="screen-ar" class="screen" hidden>
+
+  <!-- Camera Background -->
+  <video id="camera" autoplay playsinline muted></video>
+
+  <!-- Corner Markers -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <!-- HUD Top -->
+  <div id="hud-top">
+    <div>
+      <div class="app-label">JOURNEYLOG</div>
+      <div class="route-name-hud">HdM Campus Tour</div>
+    </div>
+    <div id="hud-badges">
+      <div id="gps-badge">⟳ GPS...</div>
+      <div id="mode-badge">SIMULATION</div>
+    </div>
+  </div>
+
+  <!-- Compass -->
+  <div id="compass">
+    <div id="compass-ring">
+      <span class="compass-dir n">N</span>
+      <span class="compass-dir s">S</span>
+      <span class="compass-dir e">E</span>
+      <span class="compass-dir w">W</span>
+      <div id="compass-needle">↑</div>
+    </div>
+    <div id="compass-target-label">WÜRFEL</div>
+  </div>
+
+  <!-- Main Navigation Arrow -->
+  <div id="nav-center">
+    <div id="nav-arrow-wrapper">
+      <span id="nav-arrow-icon">↑</span>
+    </div>
+    <div id="nav-label">🎲 Würfel</div>
+    <div id="nav-dist">–</div>
+  </div>
+
+  <!-- POI Badges -->
+  <div id="poi-list"></div>
+
+  <!-- Minimap -->
+  <div id="minimap"></div>
+
+  <!-- HUD Bottom -->
+  <div id="hud-bottom">
+    <div id="motivator">Navigation gestartet 🚀</div>
+    <div id="progress-track"><div id="progress-fill"></div></div>
+    <div id="progress-stats">
+      <span class="pstat"><span class="pstat-label">ROUTE </span><span class="pstat-val" id="stat-total">–</span></span>
+      <span class="pstat"><span class="pstat-label">NÄCHSTES </span><span class="pstat-val" id="stat-next">–</span></span>
+      <span class="pstat"><span class="pstat-label">ZIEL </span><span class="pstat-val" id="stat-step">1/3</span></span>
+    </div>
+  </div>
+
+  <!-- Arrival Banner -->
+  <div id="arrival-banner" hidden>
+    <div class="arrive-icon">✅</div>
+    <div class="arrive-tag">WAYPOINT ERREICHT</div>
+    <div id="arrive-name">Würfel</div>
+    <button id="btn-next">Weiter →</button>
+  </div>
+
+</div>
+
+<!-- ═══════════════ FINISHED SCREEN ═══════════════ -->
+<div id="screen-finished" class="screen" hidden>
+  <div class="fin-icon">🏆</div>
+  <div class="fin-title">Tour abgeschlossen!</div>
+  <div class="fin-sub">HdM Campus Route</div>
+  <div class="fin-stats">
+    <div>
+      <div class="fin-stat-val" id="fin-dist">472</div>
+      <div class="fin-stat-lbl">METER</div>
+    </div>
+    <div>
+      <div class="fin-stat-val">3</div>
+      <div class="fin-stat-lbl">WAYPOINTS</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SCRIPTS ═══════════════ -->
+<script src="waypoints.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+
+// ─── ROUTE CONFIG ───────────────────────────────────────────────
+const NAV_ROUTE = [
+  { name: 'Würfel',   emoji: '🎲', lat: 48.740751166620676, lng: 9.100862255128924, color: '#ffd166' },
+  { name: 'Mensa',    emoji: '🍽', lat: 48.74273,            lng: 9.10387,           color: '#00e5ff' },
+  { name: 'Lernwelt', emoji: '📚', lat: 48.74116,            lng: 9.10202,           color: '#ff8c69' },
+];
+
+const MOTIVATORS = [
+  'Weiter so! 💪', 'Fast da! 🎯', 'Du schaffst das!',
+  'Gutes Tempo! 🏃', 'Auf Kurs! ✓', 'Super Leistung! ⭐',
+  'Noch ein Stück!', 'HdM erkunden! 🗺',
+];
+
+const ARRIVAL_RADIUS = 20; // meters
+
+// ─── STATE ──────────────────────────────────────────────────────
+const S = {
+  wpIdx: 0,
+  userLat: START_POSITION.lat,
+  userLng: START_POSITION.lng,
+  rawHeading: 0,
+  smoothHeading: 0,
+  gpsActive: false,
+  compassActive: false,
+  simMode: false,
+  simLat: START_POSITION.lat,
+  simLng: START_POSITION.lng,
+  simHeading: 0,
+  arrivalShown: false,
+  totalDist: 0,
+};
+
+// Pre-calculate total route distance
+{
+  let p = [START_POSITION.lat, START_POSITION.lng];
+  NAV_ROUTE.forEach(wp => {
+    S.totalDist += haversineDistance(p[0], p[1], wp.lat, wp.lng);
+    p = [wp.lat, wp.lng];
+  });
+}
+
+// ─── DOM REFS ───────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const screenStart    = $('screen-start');
+const screenAr       = $('screen-ar');
+const screenFinished = $('screen-finished');
+const cameraEl       = $('camera');
+const gpsBadge       = $('gps-badge');
+const modeBadge      = $('mode-badge');
+const compassNeedle  = $('compass-needle');
+const compassTarget  = $('compass-target-label');
+const navWrapper     = $('nav-arrow-wrapper');
+const navArrowIcon   = $('nav-arrow-icon');
+const navLabel       = $('nav-label');
+const navDist        = $('nav-dist');
+const poiList        = $('poi-list');
+const progressFill   = $('progress-fill');
+const motivatorEl    = $('motivator');
+const statTotal      = $('stat-total');
+const statNext       = $('stat-next');
+const statStep       = $('stat-step');
+const arrivalBanner  = $('arrival-banner');
+const arriveName     = $('arrive-name');
+
+// ─── HELPERS ────────────────────────────────────────────────────
+function fmtDist(m) {
+  return m >= 1000 ? (m / 1000).toFixed(1) + ' km' : Math.round(m) + 'm';
+}
+
+function smoothAngle(newDeg, oldDeg, alpha = 0.15) {
+  let d = newDeg - oldDeg;
+  if (d < -180) d += 360;
+  if (d > 180)  d -= 360;
+  let s = (oldDeg + alpha * d + 360) % 360;
+  return s;
+}
+
+function moveToward(lat, lng, bearingDeg, meters) {
+  const R = 6371000;
+  const b = bearingDeg * Math.PI / 180;
+  const φ1 = lat * Math.PI / 180;
+  const λ1 = lng * Math.PI / 180;
+  const φ2 = Math.asin(Math.sin(φ1) * Math.cos(meters/R) + Math.cos(φ1) * Math.sin(meters/R) * Math.cos(b));
+  const λ2 = λ1 + Math.atan2(Math.sin(b) * Math.sin(meters/R) * Math.cos(φ1), Math.cos(meters/R) - Math.sin(φ1) * Math.sin(φ2));
+  return { lat: φ2 * 180/Math.PI, lng: λ2 * 180/Math.PI };
+}
+
+// ─── LEAFLET MAP ────────────────────────────────────────────────
+let map, userMarker;
+
+function initMap() {
+  map = L.map('minimap', {
+    zoomControl: false, dragging: false, touchZoom: false,
+    scrollWheelZoom: false, doubleClickZoom: false,
+    boxZoom: false, keyboard: false, attributionControl: false,
+  }).setView([START_POSITION.lat, START_POSITION.lng], 17);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+  const mkIcon = (color, size = 10) => L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 5px rgba(0,0,0,0.6)"></div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2], className: '',
+  });
+
+  userMarker = L.marker([START_POSITION.lat, START_POSITION.lng], { icon: mkIcon('#64ffa0', 12) }).addTo(map);
+  L.marker([START_POSITION.lat, START_POSITION.lng], { icon: mkIcon('#fff', 7) }).addTo(map);
+  NAV_ROUTE.forEach(wp => L.marker([wp.lat, wp.lng], { icon: mkIcon(wp.color, 8) }).addTo(map));
+}
+
+function updateMap() {
+  if (!map || !userMarker) return;
+  userMarker.setLatLng([S.userLat, S.userLng]);
+  map.panTo([S.userLat, S.userLng]);
+}
+
+// ─── CAMERA ─────────────────────────────────────────────────────
+async function startCamera() {
+  const constraints = [
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode: 'environment' } },
+    { video: true },
+  ];
+  for (const c of constraints) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(c);
+      cameraEl.srcObject = stream;
+      return;
+    } catch (_) {}
+  }
+}
+
+// ─── COMPASS ────────────────────────────────────────────────────
+function getHeading(e) {
+  // iOS: webkitCompassHeading is absolute (0=North, CW)
+  if (e.webkitCompassHeading != null) return e.webkitCompassHeading;
+  // Android with absolute orientation: alpha is CCW from East → convert
+  if (e.absolute === true) return (360 - (e.alpha || 0)) % 360;
+  // Non-absolute fallback
+  return (360 - (e.alpha || 0)) % 360;
+}
+
+function onOrientation(e) {
+  S.rawHeading = getHeading(e);
+  S.compassActive = true;
+}
+
+async function startCompass() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm === 'granted') window.addEventListener('deviceorientation', onOrientation);
+    } catch (e) { /* silently fail */ }
+  } else {
+    // Try absolute orientation first (Android Chrome)
+    window.addEventListener('deviceorientationabsolute', onOrientation);
+    window.addEventListener('deviceorientation', onOrientation);
+  }
+}
+
+// ─── GPS ────────────────────────────────────────────────────────
+let gpsWatchId = null;
+
+function startGPS() {
+  if (!navigator.geolocation) { enableSim(); return; }
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      S.userLat   = pos.coords.latitude;
+      S.userLng   = pos.coords.longitude;
+      S.gpsActive = true;
+      if (S.simMode) { S.simMode = false; modeBadge.classList.remove('visible'); }
+
+      const acc = Math.round(pos.coords.accuracy);
+      gpsBadge.textContent = `● GPS ±${acc}m`;
+      gpsBadge.classList.add('active');
+
+      // Use GPS heading when walking
+      if (pos.coords.heading != null && pos.coords.speed > 0.5) {
+        S.rawHeading = pos.coords.heading;
+      }
+      updateMap();
+    },
+    err => {
+      if (!S.gpsActive) { gpsBadge.textContent = '⚠ GPS Fehler'; enableSim(); }
+    },
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+  );
+
+  // Fallback if no fix after 10s
+  setTimeout(() => { if (!S.gpsActive) enableSim(); }, 10000);
+}
+
+// ─── SIMULATION ─────────────────────────────────────────────────
+let simTimer = null;
+
+function enableSim() {
+  if (S.simMode) return;
+  S.simMode  = true;
+  S.simLat   = START_POSITION.lat;
+  S.simLng   = START_POSITION.lng;
+  S.simHeading = 0;
+  gpsBadge.textContent = '⟳ SIMULATION';
+  modeBadge.classList.add('visible');
+
+  simTimer = setInterval(() => {
+    if (!S.simMode || S.arrivalShown) return;
+    const wp      = NAV_ROUTE[S.wpIdx];
+    const bearing = gpsBearing(S.simLat, S.simLng, wp.lat, wp.lng);
+    const dist    = haversineDistance(S.simLat, S.simLng, wp.lat, wp.lng);
+
+    if (dist < 8) { triggerArrival(); return; }
+
+    const pos = moveToward(S.simLat, S.simLng, bearing, 3);
+    S.simLat = pos.lat; S.simLng = pos.lng;
+    S.userLat = pos.lat; S.userLng = pos.lng;
+
+    // Simulate realistic heading drift
+    const diff = ((bearing - S.simHeading + 540) % 360) - 180;
+    S.simHeading = (S.simHeading + diff * 0.13 + (Math.random() - 0.5) * 6 + 360) % 360;
+    S.rawHeading = S.simHeading;
+    updateMap();
+  }, 900);
+}
+
+// ─── POI BADGES ─────────────────────────────────────────────────
+function buildPOI() {
+  poiList.innerHTML = '';
+  NAV_ROUTE.forEach((wp, i) => {
+    if (i === S.wpIdx) return;
+    const dist = haversineDistance(S.userLat, S.userLng, wp.lat, wp.lng);
+    const el = document.createElement('div');
+    el.className = 'poi-item';
+    el.style.borderColor = wp.color;
+    el.dataset.poi = i;
+    el.innerHTML = `
+      <div class="poi-dir" data-poi="${i}" style="color:${wp.color}">↑</div>
+      <div>
+        <div class="poi-name-el" style="color:${wp.color}">${wp.emoji} ${wp.name}</div>
+        <div class="poi-dist-el">${fmtDist(dist)}</div>
+      </div>`;
+    poiList.appendChild(el);
+  });
+}
+
+function updatePOI() {
+  document.querySelectorAll('.poi-item').forEach(el => {
+    const i = parseInt(el.dataset.poi);
+    const wp = NAV_ROUTE[i];
+    const bearing = gpsBearing(S.userLat, S.userLng, wp.lat, wp.lng);
+    const rel     = (bearing - S.smoothHeading + 360) % 360;
+    el.querySelector('.poi-dir').style.transform  = `rotate(${rel}deg)`;
+    el.querySelector('.poi-dist-el').textContent  = fmtDist(haversineDistance(S.userLat, S.userLng, wp.lat, wp.lng));
+  });
+}
+
+// ─── HUD UPDATE (called 5× / second) ────────────────────────────
+function updateHUD() {
+  if (S.wpIdx >= NAV_ROUTE.length) return;
+
+  S.smoothHeading = smoothAngle(S.rawHeading, S.smoothHeading);
+
+  const wp      = NAV_ROUTE[S.wpIdx];
+  const dist    = haversineDistance(S.userLat, S.userLng, wp.lat, wp.lng);
+  const bearing = gpsBearing(S.userLat, S.userLng, wp.lat, wp.lng);
+  const relAngle = (bearing - S.smoothHeading + 360) % 360;
+
+  // Main arrow
+  navWrapper.style.transform = `rotate(${relAngle}deg)`;
+  navArrowIcon.style.color   = wp.color;
+  navArrowIcon.style.filter  = `drop-shadow(0 0 14px ${wp.color}99)`;
+  navLabel.textContent       = `${wp.emoji} ${wp.name}`;
+  navLabel.style.borderColor = wp.color;
+  navLabel.style.color       = wp.color;
+  navDist.textContent        = fmtDist(dist);
+  navDist.style.color        = wp.color;
+
+  // Compass needle points to target
+  compassNeedle.style.transform = `rotate(${relAngle}deg)`;
+  compassNeedle.style.color     = wp.color;
+  compassTarget.textContent     = wp.name.toUpperCase();
+  compassTarget.style.color     = wp.color;
+
+  // POI badges
+  updatePOI();
+
+  // Progress bar
+  let remaining = dist;
+  for (let i = S.wpIdx + 1; i < NAV_ROUTE.length; i++) {
+    remaining += haversineDistance(NAV_ROUTE[i-1].lat, NAV_ROUTE[i-1].lng, NAV_ROUTE[i].lat, NAV_ROUTE[i].lng);
+  }
+  const pct = Math.max(0, Math.min(100, ((S.totalDist - remaining) / S.totalDist) * 100));
+  progressFill.style.width = pct.toFixed(1) + '%';
+  statTotal.textContent    = fmtDist(S.totalDist);
+  statNext.textContent     = fmtDist(dist);
+  statStep.textContent     = `${S.wpIdx + 1}/${NAV_ROUTE.length}`;
+
+  // Arrival check
+  if (dist < ARRIVAL_RADIUS && !S.arrivalShown) triggerArrival();
+}
+
+// ─── MOTIVATOR ──────────────────────────────────────────────────
+let motivIdx = 0;
+function nextMotivator() {
+  motivatorEl.textContent = MOTIVATORS[motivIdx++ % MOTIVATORS.length];
+}
+
+// ─── ARRIVAL ────────────────────────────────────────────────────
+let arrivalTimer;
+
+function triggerArrival() {
+  if (S.arrivalShown) return;
+  S.arrivalShown = true;
+  const wp = NAV_ROUTE[S.wpIdx];
+  arriveName.textContent = `${wp.emoji} ${wp.name}`;
+  arriveName.style.color = wp.color;
+  arrivalBanner.hidden = false;
+  arrivalTimer = setTimeout(advanceWP, 5000);
+}
+
+function advanceWP() {
+  clearTimeout(arrivalTimer);
+  arrivalBanner.hidden = true;
+  S.arrivalShown = false;
+  S.wpIdx++;
+
+  if (S.wpIdx >= NAV_ROUTE.length) {
+    showFinished(); return;
+  }
+
+  // Reset sim position to last reached waypoint
+  if (S.simMode) {
+    const prev = NAV_ROUTE[S.wpIdx - 1];
+    S.simLat = prev.lat; S.simLng = prev.lng;
+    S.userLat = prev.lat; S.userLng = prev.lng;
+  }
+
+  buildPOI();
+  nextMotivator();
+}
+
+function showFinished() {
+  clearInterval(simTimer);
+  if (gpsWatchId != null) navigator.geolocation.clearWatch(gpsWatchId);
+  screenAr.hidden = true;
+  screenFinished.hidden = false;
+}
+
+// ─── BOOT ───────────────────────────────────────────────────────
+$('btn-start').addEventListener('click', async () => {
+  screenStart.hidden = true;
+  screenAr.hidden    = false;
+
+  await startCamera();
+  await startCompass();
+  startGPS();
+  initMap();
+  buildPOI();
+  nextMotivator();
+
+  setInterval(nextMotivator, 9000);
+  setInterval(updateHUD, 200);
+});
+
+$('btn-next').addEventListener('click', () => { clearTimeout(arrivalTimer); advanceWP(); });
+
+</script>
+</body>
+</html>
