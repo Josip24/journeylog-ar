@@ -1,20 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>JourneyLog Campus AR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Critical fix: inject DOM overlay BEFORE A-Frame requests the WebXR session.
+    // Quest 2 Browser supports dom-overlay – it must be in optionalFeatures
+    // and the root element must already be visible in the DOM.
+    if (navigator.xr) {
+      const _req = navigator.xr.requestSession.bind(navigator.xr);
+      navigator.xr.requestSession = function (mode, opts = {}) {
+        if (mode === 'immersive-ar') {
+          const hud = document.getElementById('hud');
+          if (hud) {
+            opts = Object.assign({}, opts);
+            opts.optionalFeatures = Array.from(
+              new Set([...(opts.optionalFeatures || []), 'dom-overlay'])
+            );
+            opts.domOverlay = { root: hud };
+          }
+        }
+        return _req(mode, opts);
+      };
+    }
+  </script>
 </head>
 <body>
-  <button id="enter-ar-btn">AR starten</button>
 
-  <!-- Hidden canvases – rendered as textures on A-Frame planes -->
-  <canvas id="hud-top-canvas" width="512" height="90" style="display:none"></canvas>
-  <canvas id="hud-bot-canvas" width="512" height="112" style="display:none"></canvas>
-  <canvas id="minimap-canvas" width="256" height="256" style="display:none"></canvas>
+  <!-- ── Start Screen ─────────────────────────────── -->
+  <div id="start-screen">
+    <div class="start-inner">
+      <p class="start-brand">JourneyLog</p>
+      <h1 class="start-title">Campus AR<br>Navigation</h1>
+      <p class="start-sub">HdM Stuttgart · Nobelstraße 10</p>
+      <button id="enter-ar-btn">AR starten</button>
+      <p class="start-hint">Meta Quest 2 · WebXR Passthrough</p>
+    </div>
+  </div>
 
+  <!-- ── DOM Overlay HUD ──────────────────────────── -->
+  <!-- MUST be visible (display:block) before enterAR() is called -->
+  <div id="hud">
+
+    <!-- Top bar -->
+    <div class="hud-top glass">
+      <div class="hud-top-row">
+        <div>
+          <div class="hud-brand">JourneyLog</div>
+          <div class="hud-route">HdM Campus Tour</div>
+        </div>
+        <div class="hud-chips">
+          <span class="chip">18°C</span>
+          <span class="chip">384m</span>
+          <span class="chip chip-green">Wandern</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quest-style corner markers -->
+    <span class="corner tl"></span>
+    <span class="corner tr"></span>
+    <span class="corner bl"></span>
+    <span class="corner br"></span>
+
+    <!-- Mini-map (canvas, offline – no map tiles) -->
+    <div class="minimap-outer">
+      <canvas id="minimap-canvas" width="200" height="200"></canvas>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="hud-bottom glass">
+      <div class="hud-bottom-row">
+        <span class="hud-motivator" id="motivator-text">Weiter so, du schaffst das!</span>
+        <span class="hud-hydration">Trinkpause fällig!</span>
+      </div>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span class="progress-pct">42%</span>
+        <span class="progress-dist" id="dist-label">
+          <span class="dist-value" id="dist-value">—</span> bis Würfel
+        </span>
+      </div>
+    </div>
+
+  </div><!-- #hud -->
+
+  <!-- ── A-Frame scene (3D arrows + POI labels only) ── -->
   <a-scene
     id="ar-scene"
     background="color: transparent"
@@ -22,281 +96,96 @@
     webxr="requiredFeatures: local-floor"
     embedded
     style="display:none">
-
-    <a-camera id="camera" position="0 1.6 0" look-controls="enabled: false">
-
-      <!-- HUD TOP: canvas texture -->
-      <a-plane id="hud-top-plane" position="0 0.33 -1.0"
-        width="1.6" height="0.17"
-        material="transparent: true; src: #hud-top-canvas; npot: true; shader: flat"></a-plane>
-
-      <!-- HUD BOTTOM: canvas texture -->
-      <a-plane id="hud-bot-plane" position="0 -0.34 -1.0"
-        width="1.6" height="0.21"
-        material="transparent: true; src: #hud-bot-canvas; npot: true; shader: flat"></a-plane>
-
-      <!-- MINI-MAP bottom-right corner -->
-      <a-plane id="minimap-plane" position="0.67 -0.24 -1.0"
-        width="0.27" height="0.27"
-        material="transparent: true; src: #minimap-canvas; npot: true; shader: flat"></a-plane>
-
-      <!-- CORNER MARKERS (Quest look) -->
-      <a-entity position="-0.76 0.45 -1.0">
-        <a-plane color="#64ffa0" opacity="0.9" width="0.05" height="0.004" position="0.025 0 0"></a-plane>
-        <a-plane color="#64ffa0" opacity="0.9" width="0.004" height="0.05" position="0 -0.025 0"></a-plane>
-      </a-entity>
-      <a-entity position="0.76 0.45 -1.0">
-        <a-plane color="#64ffa0" opacity="0.9" width="0.05" height="0.004" position="-0.025 0 0"></a-plane>
-        <a-plane color="#64ffa0" opacity="0.9" width="0.004" height="0.05" position="0 -0.025 0"></a-plane>
-      </a-entity>
-      <a-entity position="-0.76 -0.45 -1.0">
-        <a-plane color="#64ffa0" opacity="0.9" width="0.05" height="0.004" position="0.025 0 0"></a-plane>
-        <a-plane color="#64ffa0" opacity="0.9" width="0.004" height="0.05" position="0 0.025 0"></a-plane>
-      </a-entity>
-      <a-entity position="0.76 -0.45 -1.0">
-        <a-plane color="#64ffa0" opacity="0.9" width="0.05" height="0.004" position="-0.025 0 0"></a-plane>
-        <a-plane color="#64ffa0" opacity="0.9" width="0.004" height="0.05" position="0 0.025 0"></a-plane>
-      </a-entity>
-
-    </a-camera>
-
+    <a-camera id="camera" position="0 1.6 0" look-controls="enabled: false"></a-camera>
     <a-entity id="waypoints-root"></a-entity>
   </a-scene>
 
   <script src="waypoints.js"></script>
   <script>
+    /* ── State ─────────────────────────────────────── */
     const state = { userLat: null, userLng: null, heading: 0 };
 
-    // Canvas contexts
-    const topCtx = document.getElementById('hud-top-canvas').getContext('2d');
-    const botCtx = document.getElementById('hud-bot-canvas').getContext('2d');
-    const mmCtx  = document.getElementById('minimap-canvas').getContext('2d');
-
-    let motivIdx = 0;
-    const MOTIVATIONS = [
-      'Weiter so, du schaffst das!',
-      'Nur noch ein bisschen!',
-      'Klasse Tempo, weiter!',
-      'Du bist auf dem richtigen Weg!',
-      'Fast da – nicht aufgeben!',
+    /* ── Mini-map (canvas, all data offline) ─────── */
+    const mmCanvas = document.getElementById('minimap-canvas');
+    const mmCtx    = mmCanvas.getContext('2d');
+    const LAT0 = 48.7403, LAT1 = 48.7430;
+    const LNG0 = 9.0992,  LNG1 = 9.1052;
+    const MM_PAD = 18;
+    const MM_WPS = [
+      { name: 'Mensa',    lat: 48.74273,  lng: 9.10387,  c: '#ffd166' },
+      { name: 'Würfel',   lat: 48.740751, lng: 9.100862, c: '#64ffa0' },
+      { name: 'Start',    lat: 48.74215,  lng: 9.100572, c: '#00e5ff' },
+      { name: 'Lernwelt', lat: 48.74116,  lng: 9.10202,  c: '#ffd166' },
     ];
 
-    // ── Canvas helpers ──────────────────────────────────────────────────────
-    function rr(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-    }
-
-    function pushTexture(id) {
-      const el = document.getElementById(id);
-      if (!el || !el.components || !el.components.material) return;
-      const mat = el.components.material.material;
-      if (mat && mat.map) mat.map.needsUpdate = true;
-    }
-
-    // ── HUD Top ─────────────────────────────────────────────────────────────
-    function drawTop() {
-      const c = topCtx, W = 512, H = 90;
-      c.clearRect(0, 0, W, H);
-
-      // Background
-      c.fillStyle = 'rgba(0,0,0,0.75)';
-      rr(c, 3, 3, W - 6, H - 6, 12); c.fill();
-
-      // Green accent line top
-      c.fillStyle = '#64ffa0';
-      rr(c, 3, 3, W - 6, 3, 2); c.fill();
-
-      // Tour name
-      c.fillStyle = '#64ffa0';
-      c.font = 'bold 24px Arial, Helvetica, sans-serif';
-      c.textAlign = 'center';
-      c.fillText('HdM Campus Tour', W / 2, 36);
-
-      // Weather + stats
-      c.fillStyle = '#ffd166';
-      c.font = '16px Arial, Helvetica, sans-serif';
-      c.fillText('18°C  •  Regen später  •  384m', W / 2, 60);
-
-      // Mode label
-      c.fillStyle = '#666666';
-      c.font = '13px Arial, Helvetica, sans-serif';
-      c.fillText('Wandern  /  Rad', W / 2, 80);
-
-      pushTexture('hud-top-plane');
-    }
-
-    // ── HUD Bottom ───────────────────────────────────────────────────────────
-    function drawBot(distLabel) {
-      const c = botCtx, W = 512, H = 112;
-      c.clearRect(0, 0, W, H);
-
-      // Background
-      c.fillStyle = 'rgba(0,0,0,0.75)';
-      rr(c, 3, 3, W - 6, H - 6, 12); c.fill();
-
-      // Motivator
-      c.fillStyle = '#ffd166';
-      c.font = 'bold 17px Arial, Helvetica, sans-serif';
-      c.textAlign = 'center';
-      c.fillText(MOTIVATIONS[motivIdx], W / 2, 24);
-
-      // Hydration
-      c.fillStyle = '#00e5ff';
-      c.font = '14px Arial, Helvetica, sans-serif';
-      c.fillText('Trinkpause fällig!', W / 2, 46);
-
-      // Progress bar track
-      const BAR_X = 28, BAR_Y = 58, BAR_W = W - 56, BAR_H = 11;
-      c.fillStyle = '#2a2a2a';
-      rr(c, BAR_X, BAR_Y, BAR_W, BAR_H, 5); c.fill();
-
-      // Progress bar fill (42%)
-      c.fillStyle = '#64ffa0';
-      rr(c, BAR_X, BAR_Y, BAR_W * 0.42, BAR_H, 5); c.fill();
-
-      // Progress text
-      c.fillStyle = '#aaaaaa';
-      c.font = '13px Arial, Helvetica, sans-serif';
-      c.textAlign = 'left';
-      c.fillText('42%', BAR_X, BAR_Y - 3);
-      c.textAlign = 'right';
-      c.fillText(distLabel || '-- m bis Würfel', W - BAR_X, BAR_Y - 3);
-
-      // POI row
-      c.fillStyle = '#555555';
-      c.font = '12px Arial, Helvetica, sans-serif';
-      c.textAlign = 'center';
-      c.fillText('Raststätte  •  Würfel  •  Mensa', W / 2, 100);
-
-      pushTexture('hud-bot-plane');
-    }
-
-    // ── Campus Mini-Map ──────────────────────────────────────────────────────
-    // All waypoint positions are hardcoded here – works completely offline.
-    const MAP_LAT_MIN = 48.7404, MAP_LAT_MAX = 48.7430;
-    const MAP_LNG_MIN = 9.0993, MAP_LNG_MAX = 9.1050;
-    const MAP_PAD = 28;
-
-    function toMap(lat, lng) {
-      const W = 256, H = 256;
+    function toMap(lat, lng, W, H) {
       return {
-        x: MAP_PAD + ((lng - MAP_LNG_MIN) / (MAP_LNG_MAX - MAP_LNG_MIN)) * (W - MAP_PAD * 2),
-        y: (H - MAP_PAD) - ((lat - MAP_LAT_MIN) / (MAP_LAT_MAX - MAP_LAT_MIN)) * (H - MAP_PAD * 2),
+        x: MM_PAD + (lng - LNG0) / (LNG1 - LNG0) * (W - MM_PAD * 2),
+        y: (H - MM_PAD) - (lat - LAT0) / (LAT1 - LAT0) * (H - MM_PAD * 2),
       };
     }
 
-    const MAP_WPS = [
-      { name: 'Mensa',     lat: 48.74273, lng: 9.10387,  color: '#ffd166' },
-      { name: 'Würfel',    lat: 48.740751, lng: 9.100862, color: '#64ffa0' },
-      { name: 'Start',     lat: 48.74215, lng: 9.100572,  color: '#00e5ff' },
-      { name: 'Lernwelt',  lat: 48.74116, lng: 9.10202,  color: '#ffd166' },
-    ];
-
     function drawMiniMap() {
-      const c = mmCtx, W = 256, H = 256;
+      const W = 200, H = 200;
+      const c = mmCtx;
       c.clearRect(0, 0, W, H);
 
       // Background
-      c.fillStyle = 'rgba(0,8,18,0.88)';
-      rr(c, 0, 0, W, H, 12); c.fill();
+      c.fillStyle = 'rgba(0,6,14,0.92)';
+      c.beginPath(); c.roundRect(0, 0, W, H, 10); c.fill();
 
-      // Border
-      c.strokeStyle = '#64ffa0'; c.lineWidth = 1.5;
-      rr(c, 1, 1, W - 2, H - 2, 12); c.stroke();
-
-      // Title
+      // Label
       c.fillStyle = '#64ffa0';
-      c.font = 'bold 11px Arial, sans-serif';
-      c.textAlign = 'center';
-      c.fillText('HdM Campus', W / 2, 15);
+      c.font = 'bold 10px -apple-system, Arial, sans-serif';
+      c.textAlign = 'left'; c.fillText('Campus', 10, 14);
+      c.fillStyle = '#444'; c.textAlign = 'right'; c.fillText('N↑', W - 8, 14);
 
-      // North label
-      c.fillStyle = '#888888';
-      c.font = '10px Arial, sans-serif';
-      c.textAlign = 'right';
-      c.fillText('N', W - 8, 15);
-
-      // Simple campus path lines
-      c.strokeStyle = 'rgba(100,255,160,0.15)';
-      c.lineWidth = 8;
-      c.lineCap = 'round';
-      const pathPoints = [
-        [48.74230, 9.09960], [48.74200, 9.10050],
-        [48.74160, 9.10150], [48.74110, 9.10200],
-      ];
-      c.beginPath();
-      pathPoints.forEach((p, i) => {
-        const m = toMap(p[0], p[1]);
-        i === 0 ? c.moveTo(m.x, m.y) : c.lineTo(m.x, m.y);
-      });
-      c.stroke();
-
-      // Waypoints
-      MAP_WPS.forEach(wp => {
-        const p = toMap(wp.lat, wp.lng);
-        // Outer glow
-        c.beginPath();
-        c.arc(p.x, p.y, 9, 0, Math.PI * 2);
-        c.fillStyle = wp.color + '30';
-        c.fill();
+      // Waypoint dots + labels
+      MM_WPS.forEach(wp => {
+        const p = toMap(wp.lat, wp.lng, W, H);
+        // Glow
+        c.beginPath(); c.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        c.fillStyle = wp.c + '22'; c.fill();
         // Dot
-        c.beginPath();
-        c.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        c.fillStyle = wp.color;
-        c.fill();
-        // Label
-        c.fillStyle = wp.color;
-        c.font = '10px Arial, sans-serif';
+        c.beginPath(); c.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        c.fillStyle = wp.c; c.fill();
+        // Text
+        c.fillStyle = wp.c;
+        c.font = '9px -apple-system, Arial, sans-serif';
         c.textAlign = 'center';
-        c.fillText(wp.name, p.x, p.y - 11);
+        c.fillText(wp.name, p.x, p.y - 8);
       });
 
-      // Live user position dot (falls GPS aktiv)
+      // Live user position
       if (state.userLat !== null) {
-        const up = toMap(state.userLat, state.userLng);
-        c.beginPath();
-        c.arc(up.x, up.y, 7, 0, Math.PI * 2);
-        c.fillStyle = 'rgba(255,255,255,0.25)';
-        c.fill();
-        c.beginPath();
-        c.arc(up.x, up.y, 4, 0, Math.PI * 2);
-        c.fillStyle = '#ffffff';
-        c.fill();
+        const p = toMap(state.userLat, state.userLng, W, H);
+        c.beginPath(); c.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        c.fillStyle = 'rgba(255,255,255,0.18)'; c.fill();
+        c.beginPath(); c.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        c.fillStyle = '#fff'; c.fill();
       }
-
-      pushTexture('minimap-plane');
     }
 
-    // ── Compass (with circular low-pass smoothing to stop jitter) ───────────
+    /* ── Compass (circular low-pass – stops arrow jitter) ── */
     function startCompass() {
-      const handler = 'ondeviceorientationabsolute' in window
-        ? 'deviceorientationabsolute'
-        : 'deviceorientation';
-      window.addEventListener(handler, onOrientation, true);
+      const ev = 'ondeviceorientationabsolute' in window
+        ? 'deviceorientationabsolute' : 'deviceorientation';
+      window.addEventListener(ev, e => {
+        let raw;
+        if (e.webkitCompassHeading != null) raw = e.webkitCompassHeading;
+        else if (e.alpha != null)            raw = (360 - e.alpha) % 360;
+        else return;
+        // Circular lerp: 85% previous + 15% new reading
+        const pr = state.heading * Math.PI / 180;
+        const cr = raw * Math.PI / 180;
+        const x = Math.cos(pr) * 0.85 + Math.cos(cr) * 0.15;
+        const y = Math.sin(pr) * 0.85 + Math.sin(cr) * 0.15;
+        state.heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        updateWaypoints();
+      }, true);
     }
 
-    function onOrientation(e) {
-      let raw;
-      if (e.webkitCompassHeading != null)  raw = e.webkitCompassHeading;
-      else if (e.alpha != null)             raw = (360 - e.alpha) % 360;
-      else return;
-
-      // Circular smoothing: 85% old + 15% new – eliminates jitter
-      const pr = state.heading * Math.PI / 180;
-      const cr = raw * Math.PI / 180;
-      const x = Math.cos(pr) * 0.85 + Math.cos(cr) * 0.15;
-      const y = Math.sin(pr) * 0.85 + Math.sin(cr) * 0.15;
-      state.heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-      updateWaypoints();
-    }
-
-    // ── GPS ─────────────────────────────────────────────────────────────────
+    /* ── GPS ────────────────────────────────────────── */
     function startGPS() {
       navigator.geolocation.watchPosition(
         pos => {
@@ -310,7 +199,7 @@
       );
     }
 
-    // ── Waypoint positioning ─────────────────────────────────────────────────
+    /* ── Waypoint positioning ───────────────────────── */
     function updateWaypoints() {
       if (state.userLat === null) return;
 
@@ -318,130 +207,125 @@
       const wDist  = haversineDistance(state.userLat, state.userLng, wurfel.lat, wurfel.lng);
       const wBear  = gpsBearing(state.userLat, state.userLng, wurfel.lat, wurfel.lng);
 
+      // Move 3 navigation arrows
       [1, 2, 3].forEach(i => {
         const pos = waypointToXRPosition(wBear, state.heading, i * 2.2);
         const el  = document.getElementById('nav-arrow-' + i);
         if (el) el.setAttribute('position', `${pos.x.toFixed(2)} 1.5 ${pos.z.toFixed(2)}`);
       });
 
+      // Move Würfel label
       const wEl = document.getElementById('wp-Würfel');
       if (wEl) {
         const pos = waypointToXRPosition(wBear, state.heading, 6);
         wEl.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y} ${pos.z.toFixed(2)}`);
       }
       const wDistEl = document.getElementById('wp-dist-Würfel');
-      const distLabel = wDist < 1000
-        ? Math.round(wDist) + 'm bis Würfel'
-        : (wDist / 1000).toFixed(1) + 'km bis Würfel';
-      if (wDistEl) wDistEl.setAttribute('value',
-        wDist < 1000 ? Math.round(wDist) + 'm' : (wDist / 1000).toFixed(1) + 'km');
+      const distStr = wDist < 1000
+        ? Math.round(wDist) + 'm'
+        : (wDist / 1000).toFixed(1) + 'km';
+      if (wDistEl) wDistEl.setAttribute('value', distStr);
 
-      drawBot(distLabel);
+      // Update HUD distance label (DOM overlay)
+      const dv = document.getElementById('dist-value');
+      if (dv) dv.textContent = distStr;
 
+      // Move Mensa + Lernwelt
       ['Mensa', 'Lernwelt'].forEach(name => {
         const wp   = WAYPOINTS.find(w => w.name === name);
         const dist = haversineDistance(state.userLat, state.userLng, wp.lat, wp.lng);
         const bear = gpsBearing(state.userLat, state.userLng, wp.lat, wp.lng);
         const pos  = waypointToXRPosition(bear, state.heading, 4);
         const el   = document.getElementById('wp-' + name);
-        if (el) {
-          el.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y} ${pos.z.toFixed(2)}`);
-          const dEl = document.getElementById('wp-dist-' + name);
-          if (dEl) dEl.setAttribute('value',
-            dist < 1000 ? Math.round(dist) + 'm' : (dist / 1000).toFixed(1) + 'km');
-        }
+        if (el) el.setAttribute('position', `${pos.x.toFixed(2)} ${pos.y} ${pos.z.toFixed(2)}`);
+        const dEl  = document.getElementById('wp-dist-' + name);
+        if (dEl) dEl.setAttribute('value',
+          dist < 1000 ? Math.round(dist) + 'm' : (dist / 1000).toFixed(1) + 'km');
       });
     }
 
-    // ── Build 3D waypoint entities ───────────────────────────────────────────
+    /* ── Build 3D A-Frame entities ──────────────────── */
     function buildWaypointEntities() {
       const root = document.getElementById('waypoints-root');
 
-      // 3 navigation arrows → Würfel
+      // 3 navigation arrows pointing toward Würfel
       [1, 2, 3].forEach(i => {
-        const container = document.createElement('a-entity');
-        container.id = 'nav-arrow-' + i;
-        container.setAttribute('position', '0 1.5 -' + (i * 2.2));
+        const g = document.createElement('a-entity');
+        g.id = 'nav-arrow-' + i;
+        g.setAttribute('position', `0 1.5 -${i * 2.2}`);
 
         // Shaft
         const shaft = document.createElement('a-cylinder');
-        shaft.setAttribute('color', '#64ffa0');
-        shaft.setAttribute('height', '0.28');
+        shaft.setAttribute('material', 'color:#64ffa0; emissive:#64ffa0; emissiveIntensity:0.45; shader:standard');
+        shaft.setAttribute('height', '0.30');
         shaft.setAttribute('radius', '0.022');
-        shaft.setAttribute('emission', '#64ffa0');
-        shaft.setAttribute('emissive-intensity', '0.4');
-        container.appendChild(shaft);
+        g.appendChild(shaft);
 
-        // Arrowhead – pulse via scale (no position change → no jump)
-        const cone = document.createElement('a-cone');
-        cone.setAttribute('color', '#64ffa0');
-        cone.setAttribute('height', '0.16');
-        cone.setAttribute('radius-bottom', '0.075');
-        cone.setAttribute('radius-top', '0');
-        cone.setAttribute('position', '0 0.22 0');
-        cone.setAttribute('animation',
-          `property: scale; from: 1 1 1; to: 1.22 1.22 1.22; dur: ${650 + i * 130}; dir: alternate; loop: true; easing: easeInOutSine`);
-        container.appendChild(cone);
+        // Arrowhead – scale-pulse only (no position change = no jump)
+        const head = document.createElement('a-cone');
+        head.setAttribute('material', 'color:#64ffa0; emissive:#64ffa0; emissiveIntensity:0.45; shader:standard');
+        head.setAttribute('height', '0.17');
+        head.setAttribute('radius-bottom', '0.078');
+        head.setAttribute('radius-top', '0');
+        head.setAttribute('position', '0 0.23 0');
+        head.setAttribute('animation',
+          `property:scale; from:0.9 0.9 0.9; to:1.22 1.22 1.22; dur:${580 + i * 130}; dir:alternate; loop:true; easing:easeInOutSine`);
+        g.appendChild(head);
 
         // Glow ring at base
         const ring = document.createElement('a-torus');
-        ring.setAttribute('color', '#64ffa0');
-        ring.setAttribute('radius', '0.11');
+        ring.setAttribute('material', 'color:#64ffa0; emissive:#64ffa0; emissiveIntensity:0.3; opacity:0.3; transparent:true; shader:standard');
+        ring.setAttribute('radius', '0.12');
         ring.setAttribute('radius-tubular', '0.007');
         ring.setAttribute('rotation', '90 0 0');
-        ring.setAttribute('opacity', '0.35');
         ring.setAttribute('animation',
-          `property: opacity; from: 0.2; to: 0.55; dur: ${900 + i * 100}; dir: alternate; loop: true`);
-        container.appendChild(ring);
+          `property:opacity; from:0.12; to:0.5; dur:${750 + i * 100}; dir:alternate; loop:true`);
+        g.appendChild(ring);
 
-        root.appendChild(container);
+        root.appendChild(g);
       });
 
-      // Würfel target label
-      const wEl = document.createElement('a-entity');
-      wEl.id = 'wp-Würfel';
-      wEl.setAttribute('position', '0 1.6 -6');
+      // Würfel – destination label
+      const wE = document.createElement('a-entity');
+      wE.id = 'wp-Würfel';
+      wE.setAttribute('position', '0 1.6 -6');
 
       const wBg = document.createElement('a-plane');
-      wBg.setAttribute('color', '#001500');
-      wBg.setAttribute('opacity', '0.82');
-      wBg.setAttribute('width', '2.0');
-      wBg.setAttribute('height', '0.62');
+      wBg.setAttribute('material', 'color:#001a08; opacity:0.88; transparent:true');
+      wBg.setAttribute('width', '2.0'); wBg.setAttribute('height', '0.62');
       wBg.setAttribute('position', '0 0 -0.01');
-      wEl.appendChild(wBg);
+      wE.appendChild(wBg);
 
-      const wLabel = document.createElement('a-text');
-      wLabel.setAttribute('value', 'WÜRFEL  –  ZIEL');
-      wLabel.setAttribute('color', '#64ffa0');
-      wLabel.setAttribute('align', 'center');
-      wLabel.setAttribute('position', '0 0.13 0');
-      wLabel.setAttribute('scale', '1.8 1.8 1.8');
-      wEl.appendChild(wLabel);
+      const wTitle = document.createElement('a-text');
+      wTitle.setAttribute('value', 'WÜRFEL  –  ZIEL');
+      wTitle.setAttribute('color', '#64ffa0');
+      wTitle.setAttribute('align', 'center');
+      wTitle.setAttribute('position', '0 0.13 0');
+      wTitle.setAttribute('scale', '1.8 1.8 1.8');
+      wE.appendChild(wTitle);
 
       const wDist = document.createElement('a-text');
       wDist.id = 'wp-dist-Würfel';
-      wDist.setAttribute('value', '-- m');
+      wDist.setAttribute('value', '— m');
       wDist.setAttribute('color', '#00e5ff');
       wDist.setAttribute('align', 'center');
       wDist.setAttribute('position', '0 -0.12 0');
-      wDist.setAttribute('scale', '1.3 1.3 1.3');
-      wEl.appendChild(wDist);
+      wDist.setAttribute('scale', '1.4 1.4 1.4');
+      wE.appendChild(wDist);
 
-      root.appendChild(wEl);
+      root.appendChild(wE);
 
-      // POI badges: Mensa + Lernwelt
+      // Mensa + Lernwelt POI labels
       [{ name: 'Mensa' }, { name: 'Lernwelt' }].forEach(poi => {
-        const el = document.createElement('a-entity');
-        el.id = 'wp-' + poi.name;
-        el.setAttribute('position', '0 1.6 -4');
+        const e = document.createElement('a-entity');
+        e.id = 'wp-' + poi.name;
+        e.setAttribute('position', '0 1.6 -4');
 
         const bg = document.createElement('a-plane');
-        bg.setAttribute('color', '#080800');
-        bg.setAttribute('opacity', '0.78');
-        bg.setAttribute('width', '1.3');
-        bg.setAttribute('height', '0.48');
+        bg.setAttribute('material', 'color:#0a0800; opacity:0.82; transparent:true');
+        bg.setAttribute('width', '1.3'); bg.setAttribute('height', '0.48');
         bg.setAttribute('position', '0 0 -0.01');
-        el.appendChild(bg);
+        e.appendChild(bg);
 
         const lbl = document.createElement('a-text');
         lbl.setAttribute('value', poi.name);
@@ -449,23 +333,45 @@
         lbl.setAttribute('align', 'center');
         lbl.setAttribute('position', '0 0.09 0');
         lbl.setAttribute('scale', '1.2 1.2 1.2');
-        el.appendChild(lbl);
+        e.appendChild(lbl);
 
         const dlbl = document.createElement('a-text');
         dlbl.id = 'wp-dist-' + poi.name;
-        dlbl.setAttribute('value', '-- m');
-        dlbl.setAttribute('color', '#aaaaaa');
+        dlbl.setAttribute('value', '— m');
+        dlbl.setAttribute('color', '#888888');
         dlbl.setAttribute('align', 'center');
         dlbl.setAttribute('position', '0 -0.1 0');
-        dlbl.setAttribute('scale', '1.0 1.0 1.0');
-        el.appendChild(dlbl);
+        dlbl.setAttribute('scale', '0.95 0.95 0.95');
+        e.appendChild(dlbl);
 
-        root.appendChild(el);
+        root.appendChild(e);
       });
     }
 
-    // ── Start / enter AR ────────────────────────────────────────────────────
+    /* ── Motivator rotation ─────────────────────────── */
+    const MOTIVATIONS = [
+      'Weiter so, du schaffst das!',
+      'Nur noch ein bisschen!',
+      'Klasse Tempo, weiter!',
+      'Du bist auf dem richtigen Weg!',
+      'Fast da – nicht aufgeben!',
+    ];
+    let motivIdx = 0;
+    const motivEl = document.getElementById('motivator-text');
+    setInterval(() => {
+      motivIdx = (motivIdx + 1) % MOTIVATIONS.length;
+      if (motivEl) {
+        motivEl.style.opacity = '0';
+        setTimeout(() => {
+          motivEl.textContent = MOTIVATIONS[motivIdx];
+          motivEl.style.opacity = '1';
+        }, 400);
+      }
+    }, 15000);
+
+    /* ── Start button ───────────────────────────────── */
     document.getElementById('enter-ar-btn').addEventListener('click', async () => {
+      // iOS permission for DeviceOrientation
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         try { await DeviceOrientationEvent.requestPermission(); } catch (_) {}
@@ -473,37 +379,26 @@
 
       buildWaypointEntities();
 
-      // GPS fallback: Quest 2 has no GPS chip – pre-fill with Vorlesungssaal
+      // GPS fallback: Quest 2 has no GPS chip → start at Vorlesungssaal
       state.userLat = START_POSITION.lat;
       state.userLng = START_POSITION.lng;
+      updateWaypoints();
+      drawMiniMap();
 
       startCompass();
       startGPS();
-      updateWaypoints();
 
-      // Draw canvases before scene init so textures load correctly
-      drawTop();
-      drawBot('-- m bis Würfel');
-      drawMiniMap();
+      // ★ KEY FIX: show HUD BEFORE enterAR() so DOM overlay can latch onto it
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('hud').style.display = 'block';
 
       const scene = document.getElementById('ar-scene');
       scene.style.display = 'block';
-      document.getElementById('enter-ar-btn').style.display = 'none';
 
-      // Give A-Frame time to bind canvas textures, then enter AR
-      setTimeout(() => {
-        drawTop();
-        drawBot('-- m bis Würfel');
-        drawMiniMap();
-        scene.enterAR();
-      }, 600);
+      // Short pause so browser registers the visible #hud element,
+      // then our interceptor attaches it as the dom-overlay root
+      setTimeout(() => scene.enterAR(), 300);
     });
-
-    // ── Motivator rotation every 15s ─────────────────────────────────────────
-    setInterval(() => {
-      motivIdx = (motivIdx + 1) % MOTIVATIONS.length;
-      drawBot();
-    }, 15000);
   </script>
 </body>
 </html>
