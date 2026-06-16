@@ -32,18 +32,18 @@
       <!-- HUD TOP: tour name + weather + altitude -->
       <a-entity id="hud-top" position="0 0.38 -1.0">
         <a-plane color="#000000" opacity="0.55" width="1.8" height="0.18" position="0 0 -0.01"></a-plane>
-        <a-text id="hud-tour" value="🏔 HdM Campus Tour" color="#64ffa0" align="center" position="0 0.04 0" scale="0.13 0.13 0.13"></a-text>
-        <a-text value="⛅ 18°C  ⚠️ Regen später" color="#ffd166" align="center" position="0 -0.04 0" scale="0.10 0.10 0.10"></a-text>
-        <a-text value="↑ 384m    🚶 Wandern  🚴 Rad" color="#aaaaaa" align="center" position="0 -0.11 0" scale="0.09 0.09 0.09"></a-text>
+        <a-text id="hud-tour" value="HdM Campus Tour" color="#64ffa0" align="center" position="0 0.04 0" scale="0.13 0.13 0.13"></a-text>
+        <a-text value="18°C  Regen später" color="#ffd166" align="center" position="0 -0.04 0" scale="0.10 0.10 0.10"></a-text>
+        <a-text value="384m  •  Wandern / Rad" color="#aaaaaa" align="center" position="0 -0.11 0" scale="0.09 0.09 0.09"></a-text>
       </a-entity>
 
       <!-- HUD BOTTOM: motivator + progress + POI -->
       <a-entity id="hud-bottom" position="0 -0.38 -1.0">
         <a-plane color="#000000" opacity="0.55" width="1.8" height="0.22" position="0 0 -0.01"></a-plane>
-        <a-text id="hud-motivator-3d" value="🔥 Weiter so, du schaffst das!" color="#ffd166" align="center" position="0 0.08 0" scale="0.10 0.10 0.10"></a-text>
-        <a-text value="💧 Trinkpause fällig!" color="#00e5ff" align="center" position="0 0 0" scale="0.09 0.09 0.09"></a-text>
-        <a-text id="hud-progress" value="[████░░░░░░] 42%  •  1.3 km" color="#aaaaaa" align="center" position="0 -0.08 0" scale="0.09 0.09 0.09"></a-text>
-        <a-text value="🏕 Raststätte   ⛰ Würfel   🌊 –" color="#888888" align="center" position="0 -0.16 0" scale="0.08 0.08 0.08"></a-text>
+        <a-text id="hud-motivator-3d" value="Weiter so, du schaffst das!" color="#ffd166" align="center" position="0 0.08 0" scale="0.10 0.10 0.10"></a-text>
+        <a-text value="Trinkpause fällig!" color="#00e5ff" align="center" position="0 0 0" scale="0.09 0.09 0.09"></a-text>
+        <a-text id="hud-progress" value="Fortschritt: 42%  •  1.3 km" color="#aaaaaa" align="center" position="0 -0.08 0" scale="0.09 0.09 0.09"></a-text>
+        <a-text value="Raststätte  •  Würfel" color="#888888" align="center" position="0 -0.16 0" scale="0.08 0.08 0.08"></a-text>
       </a-entity>
 
       <!-- CORNER MARKERS (Quest look) -->
@@ -168,7 +168,7 @@
       wurfelEntity.id = 'wp-Würfel';
       wurfelEntity.setAttribute('position', '0 1.6 -6');
       const wurfelLabel = document.createElement('a-text');
-      wurfelLabel.setAttribute('value', '🎲 Würfel  ZIEL');
+      wurfelLabel.setAttribute('value', '>> WÜRFEL  ZIEL <<');
       wurfelLabel.setAttribute('color', '#64ffa0');
       wurfelLabel.setAttribute('align', 'center');
       wurfelLabel.setAttribute('position', '0 0.15 0');
@@ -197,7 +197,7 @@
         entity.id = 'wp-' + poi.name;
         entity.setAttribute('position', '0 1.6 -4');
         const label = document.createElement('a-text');
-        label.setAttribute('value', poi.icon + ' ' + poi.name);
+        label.setAttribute('value', poi.name);
         label.setAttribute('color', '#ffd166');
         label.setAttribute('align', 'center');
         label.setAttribute('position', '0 0.08 0');
@@ -244,11 +244,11 @@
 
     // Rotating motivator messages
     const MOTIVATIONS = [
-      '🔥 Weiter so, du schaffst das!',
-      '💪 Nur noch ein bisschen!',
-      '🌟 Klasse Tempo!',
-      '🏆 Du bist auf dem richtigen Weg!',
-      '⚡ Fast da – nicht aufgeben!',
+      'Weiter so, du schaffst das!',
+      'Nur noch ein bisschen!',
+      'Klasse Tempo!',
+      'Du bist auf dem richtigen Weg!',
+      'Fast da – nicht aufgeben!',
     ];
     let motivIdx = 0;
     function rotateMotivator() {
