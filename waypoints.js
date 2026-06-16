@@ -1,7 +1,7 @@
 const WAYPOINTS = [
   { name: 'Mensa',          icon: '🍽',  lat: 48.74273, lng: 9.10387 },
-  { name: 'Würfel',         icon: '🎲',  lat: 48.74180, lng: 9.10050 },
-  { name: 'Vorlesungssaal', icon: '🎓',  lat: 48.74227, lng: 9.10118 },
+  { name: 'Würfel',         icon: '🎲',  lat: 48.740751166620676, lng: 9.100862255128924 },
+  { name: 'Vorlesungssaal', icon: '🎓',  lat: 48.74215412756118,  lng: 9.100572491887961 },
   { name: 'Lernwelt',       icon: '📚',  lat: 48.74116, lng: 9.10202 },
 ];
 
