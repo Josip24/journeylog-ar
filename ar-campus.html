@@ -85,6 +85,11 @@
       display: none; letter-spacing: 1px;
     }
     #mode-badge.visible { display: block; }
+    #btn-demo {
+      font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 5px;
+      color: #00e5ff; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.3);
+      cursor: pointer; letter-spacing: 1px; pointer-events: auto;
+    }
 
     /* Compass (top-right) */
     #compass {
@@ -251,6 +256,7 @@
     <div id="hud-badges">
       <div id="gps-badge">⟳ GPS...</div>
       <div id="mode-badge">SIMULATION</div>
+      <button id="btn-demo" onclick="enableSim()" title="Demo-Modus">▶ DEMO</button>
     </div>
   </div>
 
@@ -495,8 +501,18 @@ function startGPS() {
       S.userLat   = pos.coords.latitude;
       S.userLng   = pos.coords.longitude;
       S.gpsActive = true;
+
+      // Auto-simulation when too far from campus (e.g. testing at home)
+      const distFromCampus = haversineDistance(pos.coords.latitude, pos.coords.longitude, START_POSITION.lat, START_POSITION.lng);
+      if (distFromCampus > 300 && !S.simMode) {
+        enableSim();
+        return;
+      }
+
       if (S.simMode) { S.simMode = false; modeBadge.classList.remove('visible'); }
 
+      S.userLat = pos.coords.latitude;
+      S.userLng = pos.coords.longitude;
       const acc = Math.round(pos.coords.accuracy);
       gpsBadge.textContent = `● GPS ±${acc}m`;
       gpsBadge.classList.add('active');
@@ -525,7 +541,12 @@ function enableSim() {
   S.simMode  = true;
   S.simLat   = START_POSITION.lat;
   S.simLng   = START_POSITION.lng;
-  S.simHeading = 0;
+  S.userLat  = START_POSITION.lat;
+  S.userLng  = START_POSITION.lng;
+  // Start heading pointing roughly toward first waypoint (Würfel = south)
+  S.simHeading = gpsBearing(START_POSITION.lat, START_POSITION.lng, NAV_ROUTE[0].lat, NAV_ROUTE[0].lng);
+  S.rawHeading = S.simHeading;
+  S.smoothHeading = S.simHeading;
   gpsBadge.textContent = '⟳ SIMULATION';
   modeBadge.classList.add('visible');
 
